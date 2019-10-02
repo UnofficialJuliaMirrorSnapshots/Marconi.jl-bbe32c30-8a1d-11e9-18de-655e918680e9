@@ -2,6 +2,7 @@ module Marconi
 
 import Base.show
 import Base.==
+import Base.+
 import Base.findmax
 using LinearAlgebra
 using Interpolations
@@ -26,6 +27,7 @@ export testMAG
 export ∠
 export inputZ
 export Γ
+export +
 export interpolate
 export complex2angleString
 export complex2angle
@@ -34,6 +36,7 @@ export readHFSSPattern
 export RadiationPattern
 export ArrayFactor
 export generateRectangularAF
+export applyAF
 
 include("Constants.jl")
 
@@ -128,6 +131,32 @@ function (af::ArrayFactor)(ϕ,θ,freq)
 end
 
 """
+        RadiationPattern(AF,ϕ,θ,freq)
+Constructs a `RadiationPattern` from an `ArrayFactor` sampled in `ϕ` and `θ` at `freq`
+"""
+function RadiationPattern(AF::ArrayFactor,ϕ::Union{AbstractRange,Array},θ::Union{AbstractRange,Array},freq::Real)
+    RadiationPattern(ϕ,θ,[AF(phi,theta,freq) for phi in ϕ, theta in θ])
+end
+
+"""
+        +(Pattern1,Pattern2)
+Adds two patterns of equal size together. Useful for arrays
+"""
+function +(pattern_1::RadiationPattern,pattern_2::RadiationPattern)
+    @assert pattern_1.ϕ == pattern_2.ϕ "Phi space must be identical"
+    @assert pattern_1.θ == pattern_2.θ "Theta space must be identical"
+    return RadiationPattern(pattern_1.ϕ,pattern_1.θ,pattern_1.pattern + pattern_2.pattern)
+end
+
+"""
+        applyAF(pattern,AF,freq)
+Applys an `ArrayFactor` to a `RadiationPattern`.
+"""
+function applyAF(pattern,AF,freq)
+    return RadiationPattern(AF,pattern.ϕ,pattern.θ,freq) + pattern
+end
+
+"""
         generateRectangularAF(Nx,Ny,Spacingx,Spacingy,ϕ,θ,freq)
 Creates an `ArrayFactor` object from arectangular array that is `Nx` X `Ny`
 big with spacing `Spacingx` and `Spacingy`. The excitations are phased such that
@@ -212,7 +241,7 @@ end
 function findmax(pattern::RadiationPattern)
     val,location = findmax(pattern.pattern)
     i = location[1]; j = location[2]
-    return val,Array(pattern.ϕ)[i],Array(pattern.ϕ)[j]
+    return val,Array(pattern.ϕ)[i],Array(pattern.θ)[j]
 end
 
 function Base.show(io::IO,network::T) where {T <: AbstractNetwork}
